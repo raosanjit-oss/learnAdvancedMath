@@ -15,6 +15,19 @@ import public_limits
 
 
 class CloudTests(unittest.TestCase):
+    def test_auth_redirect_uses_deployed_app_url(self):
+        with patch.object(cloud_lessons, "setting", side_effect=lambda name, default=None: {
+            "APP_URL": "https://example.streamlit.app/",
+        }.get(name, default)):
+            self.assertEqual(
+                cloud_lessons.auth_options(),
+                {"email_redirect_to": "https://example.streamlit.app"},
+            )
+
+    def test_auth_redirect_is_optional_for_local_development(self):
+        with patch.object(cloud_lessons, "setting", return_value=""):
+            self.assertEqual(cloud_lessons.auth_options(), {})
+
     def test_model_name_never_comes_from_api_key(self):
         import runpy
         with patch.dict(os.environ, {"GOOGLE_API_KEY": "secret-test-value", "MANIM_CODING_MODEL": "test-model"}):
