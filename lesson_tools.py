@@ -156,6 +156,22 @@ def linux_sandbox_command(command, directory):
     return ["prlimit", "--as=8589934592", "--cpu=3600", "--fsize=1073741824", "--nofile=256", "--nproc=128", "--", *sandbox]
 
 
+def render_failure_message(log_text):
+    """Turn common Manim/host failures into a useful, secret-free message."""
+    lower_log = log_text.lower()
+    if "bwrap" in lower_log and any(problem in lower_log for problem in (
+        "operation not permitted", "permission denied", "creating new namespace failed",
+    )):
+        return "This host blocks the secure Bubblewrap sandbox required to render generated code."
+    if "latex error" in lower_log or "latex failed" in lower_log or "latex compilation" in lower_log:
+        return "Manim could not compile one of the generated math expressions with LaTeX. Generate again."
+    if "no space left on device" in lower_log:
+        return "The rendering server ran out of temporary storage. Try again after the app restarts."
+    if "killed" in lower_log or "out of memory" in lower_log:
+        return "The rendering server ran out of memory while making this video. Try a narrower topic."
+    return "Manim could not finish this lesson. Open Render details below for the final log lines."
+
+
 def render_video(lesson_directory):
     """Render once, directly at 1080p/60 fps. Return only a verified final MP4."""
     directory = Path(lesson_directory).resolve()
@@ -181,7 +197,11 @@ def render_video(lesson_directory):
                 process.wait()
                 raise ValueError("Rendering exceeded one hour. Try a narrower topic.")
         if return_code != 0:
-            raise ValueError("Manim could not finish this lesson. The render log has the details.")
+            log_text = (directory / "render.log").read_text(encoding="utf-8", errors="replace")
+            # Streamlit's deployment log is visible only to the app owner. Avoid
+            # printing the generated source; the final renderer lines are enough.
+            print("Manim renderer failure:\n" + "\n".join(log_text.splitlines()[-40:]), file=sys.stderr, flush=True)
+            raise ValueError(render_failure_message(log_text))
         videos = list((directory / "media" / "videos").rglob("lesson.mp4"))
         if len(videos) != 1:
             raise ValueError("Rendering finished without the expected video file.")
