@@ -34,8 +34,14 @@ for name, value in defaults.items():
 def show_error(error):
     """Explain failures without sending provider tracebacks/keys to the page."""
     code = getattr(error, "status_code", None) or getattr(error, "code", None)
+    try:
+        code = int(code)
+    except (TypeError, ValueError):
+        pass
     if code == 429:
         message = "The AI provider's quota is temporarily exhausted. Wait a little and try again."
+    elif code in (500, 502, 503, 504):
+        message = "Gemini is temporarily busy. The app retried automatically; wait a minute and generate again."
     elif code in (401, 403):
         message = "The AI provider could not authorize this request. Check the API key and model access in .env."
     elif code == 404:
