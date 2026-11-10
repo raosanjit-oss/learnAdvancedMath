@@ -233,11 +233,13 @@ else:
             if st.session_state.lesson_directory and st.button("Retry saved animation", use_container_width=True):
                 create_video(retry_render=True)
                 st.rerun()
-        if st.session_state.lesson_directory and not public_mode:
+        if st.session_state.lesson_directory:
             log = Path(st.session_state.lesson_directory) / "render.log"
             if log.is_file():
-                with st.expander("Troubleshooting"):
-                    st.caption("The render log can help debug the saved lesson.")
+                with st.expander("Render details"):
+                    st.caption("The final renderer lines identify dependency, sandbox, and generated-code problems.")
+                    final_lines = "\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-40:])
+                    st.code(final_lines or "The renderer did not produce a log.", language="text")
                     st.download_button("Download render log", log.read_bytes(), file_name="render.log", on_click="ignore")
 
     if st.session_state.stage == "input":
