@@ -1,0 +1,15 @@
+*
+!requirements.txt
+!cloud-sdk.lock
+!app.py
+!generate_lesson.py
+!lesson_tools.py
+!cloud_lessons.py
+!public_limits.py
+!verify_host.py
+!styles.css
+!system_prompt.txt
+!suggestions.txt
+!topic_viability.txt
+!.streamlit/
+!.streamlit/config.toml

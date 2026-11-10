@@ -1,0 +1,37 @@
+:root { color-scheme: dark; }
+.stApp { background: #141414; color: #e6e6e6; }
+[data-testid="stHeader"] { background: #141414; }
+[data-testid="stSidebar"] { background: #181818; border-right: 1px solid #303030; }
+[data-testid="stSidebarContent"] { padding-top: 1.8rem; }
+.block-container { max-width: 1120px; padding: 2.5rem 3.5rem 2rem; }
+h1, h2, h3 { font-family: Georgia, 'Times New Roman', serif !important; letter-spacing: -.03em; font-weight: 400 !important; }
+h1 { line-height: 1.1 !important; }
+.brand { display: flex; align-items: center; gap: .6rem; font-size: 2rem; padding-bottom: .5rem; }
+.brand span { font-family: Georgia, serif; font-size: 1.5rem; }
+.topline { display: flex; justify-content: space-between; border-bottom: 1px solid #353535; padding-bottom: 1.2rem; margin-bottom: 3.5rem; }
+.topline, .eyebrow, .section-label, .page-footer { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .68rem; letter-spacing: .13em; color: #999; }
+.eyebrow { margin-bottom: .8rem; }
+.hero { margin: 0 0 2rem; }
+.hero h1 { font-size: clamp(2.7rem, 5vw, 4.6rem); margin: 1rem 0 1.4rem; }
+.hero p { color: #aaa; font-size: 1.02rem; line-height: 1.7; }
+[data-testid="stTextArea"] textarea, [data-testid="stTextInput"] input { background: #1c1c1c; color: #e6e6e6; }
+[data-testid="stTextArea"] > div, [data-testid="stTextInput"] > div { border: 1px solid #434343; border-radius: 12px; }
+button[kind="primary"], button[kind="primaryFormSubmit"] { background: #e6e6e6 !important; color: #141414 !important; border: 1px solid #e6e6e6 !important; }
+button[kind="secondary"], button[kind="secondaryFormSubmit"] { background: transparent; color: #ddd; border: 1px solid #434343; }
+button { border-radius: 8px !important; min-height: 2.6rem; }
+button:hover { border-color: #ddd !important; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #b7d8cc !important; outline-offset: 3px; }
+[data-testid="stVerticalBlockBorderWrapper"] > div { border-color: #353535 !important; border-radius: 12px !important; }
+[data-testid="stCaptionContainer"] { color: #a6a6a6; }
+.section-label { margin: 2.5rem 0 1rem; }
+hr { border-color: #343434 !important; }
+video { border-radius: 12px; border: 1px solid #343434; }
+.page-footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid #303030; display: flex; justify-content: space-between; letter-spacing: .03em; }
+[data-testid="stSidebar"] button { text-align: left; }
+@media (max-width: 700px) {
+  .block-container { padding: 2rem 1.2rem; }
+  .topline { margin-bottom: 2rem; font-size: .6rem; gap: 1rem; }
+  .hero p br { display: none; }
+  .page-footer { display: block; line-height: 2; }
+  .page-footer span { display: block; }
+}
