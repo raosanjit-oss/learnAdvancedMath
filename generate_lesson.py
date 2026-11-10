@@ -61,7 +61,16 @@ def generate_manim_code(topic):
         raise ValueError("Add GOOGLE_API_KEY to the project's .env file first.")
     with open(project_directory / "system_prompt.txt", encoding="utf-8") as file:
         prompt = file.read()
-    with genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=180000)) as google_client:
+    retry_options = types.HttpRetryOptions(
+        attempts=4,
+        initial_delay=2,
+        max_delay=20,
+        exp_base=2,
+        jitter=1,
+        http_status_codes=[429, 500, 502, 503, 504],
+    )
+    http_options = types.HttpOptions(timeout=180000, retry_options=retry_options)
+    with genai.Client(api_key=api_key, http_options=http_options) as google_client:
         manim_code_output = google_client.models.generate_content(
             model=manim_coding_model,
             contents=topic,
