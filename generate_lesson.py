@@ -13,6 +13,15 @@ project_directory = Path(__file__).resolve().parent
 load_dotenv(project_directory / ".env")
 topic_viability_model = "openai/gpt-oss-20b"
 manim_coding_model = get_setting("MANIM_CODING_MODEL", "gemini-3.8-flash")
+manim_fallback_model = get_setting("MANIM_FALLBACK_MODEL", "gemini-3.5-flash")
+
+
+def coding_model_choices():
+    """Use the preferred model first, then one reliable free-tier fallback."""
+    models = [manim_coding_model]
+    if manim_fallback_model and manim_fallback_model not in models:
+        models.append(manim_fallback_model)
+    return models
 
 
 def ask_groq(topic, prompt_file):
@@ -71,15 +80,22 @@ def generate_manim_code(topic):
     )
     http_options = types.HttpOptions(timeout=180000, retry_options=retry_options)
     with genai.Client(api_key=api_key, http_options=http_options) as google_client:
-        manim_code_output = google_client.models.generate_content(
-            model=manim_coding_model,
-            contents=topic,
-            config=types.GenerateContentConfig(
-                system_instruction=prompt,
-                temperature=0.2,
-                max_output_tokens=30000,
-            ),
-        )
+        for model_number, model_name in enumerate(coding_model_choices()):
+            try:
+                manim_code_output = google_client.models.generate_content(
+                    model=model_name,
+                    contents=topic,
+                    config=types.GenerateContentConfig(
+                        system_instruction=prompt,
+                        temperature=0.2,
+                        max_output_tokens=30000,
+                    ),
+                )
+                break
+            except Exception as error:
+                is_last_model = model_number == len(coding_model_choices()) - 1
+                if getattr(error, "code", None) != 503 or is_last_model:
+                    raise
     if not manim_code_output.candidates or not manim_code_output.candidates[0].content:
         raise ValueError("The model returned no lesson. Please try a more specific topic.")
     candidate = manim_code_output.candidates[0]
