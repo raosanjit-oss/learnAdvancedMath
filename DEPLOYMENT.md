@@ -7,10 +7,11 @@ and no paid upgrade has been enabled. The CPU Basic setup below is therefore not
 a $0 deployment option for this account. See
 https://huggingface.co/docs/huggingface_hub/guides/manage-spaces .
 
-A possible $0 alternative is Streamlit Community Cloud for the UI, Supabase for
-storage/job records, and an outbound polling renderer on the owner's Mac. That
-requires a queue/worker implementation and the Mac to remain awake; it is not
-implemented by the current synchronous renderer.
+A possible $0 alternative is Streamlit Community Cloud for the UI and rendering,
+with Supabase for private storage. The repository now includes `packages.txt` for
+this experiment. It must pass the Bubblewrap isolation check and a complete hosted
+render before the link is shared; shared CPU/RAM limits may make the approach
+unsuitable for 1080p/60 FPS output.
 
 The local app works. Cloud deployment is not verified until the Linux image
 builds, `verify_host.py` passes, and an actual signed-in generation/upload/playback
@@ -24,9 +25,8 @@ database. Do not reapply it to the existing project. It creates a private
 `lesson-videos` bucket and an owner-protected `lessons` table. Each video has a
 50 MiB maximum, and signed playback links expire after one hour.
 
-Use Supabase Authentication's dashboard to invite/create the first test accounts.
-The app has sign-in only, not public registration. Set `BETA_EMAILS` to the exact
-comma-separated email addresses that may use the AI generation service. Never
+The app allows account creation only for the exact comma-separated addresses in
+`BETA_EMAILS`; Supabase may require email confirmation before first sign-in. Never
 set a service-role key in this app: it uses a publishable key and each user's
 authenticated session. No student videos are bundled in the repository/image.
 

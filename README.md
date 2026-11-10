@@ -36,6 +36,26 @@ The existing `.venv` is retained, but the app now uses `manim_env` for both
 generation and video rendering. Do not use the editor's Run Python button to
 start a Streamlit app.
 
+## Streamlit Community Cloud beta
+
+The repository includes `packages.txt` for FFmpeg, Cairo, Pango, LaTeX,
+Bubblewrap, and the other Linux tools Manim needs. Deploy `app.py` with Python
+3.11 and add these values through Streamlit's protected Secrets field:
+
+```toml
+PUBLIC_DEPLOYMENT = "true"
+GROQ_API_KEY = "..."
+GOOGLE_API_KEY = "..."
+MANIM_CODING_MODEL = "gemini-3.8-flash"
+SUPABASE_URL = "https://zbitxwoucoqlswlradmt.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "..."
+BETA_EMAILS = "invited@example.com"
+```
+
+Never commit those values. The public beta fails closed if its Linux process
+sandbox is unavailable. Streamlit's shared CPU and memory may still be too small
+for long 1080p/60 FPS renders; deployment must pass a real render before sharing.
+
 ## API keys
 
 Keep these variables in the project's `.env` file:
@@ -91,7 +111,7 @@ formulas and are not installed by `pip install -r requirements.txt`.
 and PyAV versions remain pinned so the rendering setup is reproducible.
 
 Local mode continues to run on your Mac. The cloud beta adds Supabase sign-in,
-private video storage, and a Linux Docker deployment. See `DEPLOYMENT.md` for
+private video storage, and a Linux deployment. See `DEPLOYMENT.md` for
 configuration and the remaining host verification. Syntax checks alone do not
 make generated Python safe to run on a public web server.
 

@@ -1,22 +1,27 @@
 """Optional Supabase accounts and storage; local mode needs no cloud account."""
 
 from datetime import datetime, timezone
-import os
 from uuid import UUID
 
 import streamlit as st
+from app_settings import get_setting
+
+
+def setting(name, default=None):
+    """Compatibility wrapper kept to make this beginner-facing file readable."""
+    return get_setting(name, default)
 
 
 def enabled():
-    return os.getenv("PUBLIC_DEPLOYMENT", "false").lower() == "true"
+    return str(setting("PUBLIC_DEPLOYMENT", "false")).lower() == "true"
 
 
 def client():
     # Never cache this across users: its auth session belongs to one browser.
     if "supabase_client" not in st.session_state:
         from supabase import create_client
-        url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_PUBLISHABLE_KEY")
+        url = setting("SUPABASE_URL")
+        key = setting("SUPABASE_PUBLISHABLE_KEY")
         if not url or not key:
             raise ValueError("Configure Supabase before enabling the public app.")
         st.session_state.supabase_client = create_client(url, key)
@@ -33,7 +38,7 @@ def require_login():
         try:
             user = db.auth.get_user().user
             if user:
-                allowed_emails = {email.strip().lower() for email in os.getenv("BETA_EMAILS", "").split(",") if email.strip()}
+                allowed_emails = {email.strip().lower() for email in str(setting("BETA_EMAILS", "")).split(",") if email.strip()}
                 if (user.email or "").lower() not in allowed_emails:
                     st.error("This account isn't on the beta invitation list yet.")
                     if st.button("Use another account"):
@@ -54,8 +59,9 @@ def require_login():
             st.error("Your session expired. Reload the page and sign in again.")
             st.stop()
     st.title("Your space to understand.")
-    st.caption("Sign in to create videos and keep your lessons private.")
-    with st.form("sign_in", clear_on_submit=True):
+    st.caption("Sign in or create an invited beta account. Your lessons stay private.")
+    sign_in_tab, create_tab = st.tabs(["Sign in", "Create account"])
+    with sign_in_tab, st.form("sign_in", clear_on_submit=True):
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
         submitted = st.form_submit_button("Sign in")
@@ -65,7 +71,26 @@ def require_login():
             st.rerun()
         except Exception:
             st.error("Could not sign in. Check your email and password.")
-    st.caption("This first beta is invite-only. Ask the app owner for an account.")
+    with create_tab, st.form("create_account", clear_on_submit=True):
+        new_email = st.text_input("Invited email", key="new_email")
+        new_password = st.text_input("Create password", type="password", key="new_password")
+        create = st.form_submit_button("Create account")
+    if create:
+        allowed_emails = {email.strip().lower() for email in str(setting("BETA_EMAILS", "")).split(",") if email.strip()}
+        if new_email.strip().lower() not in allowed_emails:
+            st.error("That email isn't on the beta invitation list.")
+        elif len(new_password) < 8:
+            st.error("Use a password with at least 8 characters.")
+        else:
+            try:
+                response = db.auth.sign_up({"email": new_email.strip(), "password": new_password})
+                if response.session:
+                    st.rerun()
+                else:
+                    st.success("Check your email to confirm your account, then return here to sign in.")
+            except Exception:
+                st.error("Could not create that account. It may already exist.")
+    st.caption("This first beta is invite-only.")
     st.stop()
 
 
@@ -94,12 +119,13 @@ def upload_video(directory, duration):
         raise ValueError("This video exceeds the beta's 50 MB storage limit.")
     path = f"{st.session_state.cloud_user_id}/{lesson_id}/lesson.mp4"
     bucket = db.storage.from_("lesson-videos")
-    # If an earlier upload succeeded but the metadata update failed, reuse it.
+    # Upload once. A retry may find that the upload succeeded before metadata did.
     try:
-        bucket.create_signed_url(path, 60)
-    except Exception:
         with video.open("rb") as file:
-            bucket.upload(path, file, file_options={"content-type": "video/mp4"})
+            bucket.upload(path, file, file_options={"content-type": "video/mp4", "upsert": "false"})
+    except Exception as error:
+        if "already exists" not in str(error).lower() and "duplicate" not in str(error).lower():
+            raise
     db.table("lessons").update({"status": "complete", "duration": duration, "video_path": path}).eq("id", lesson_id).execute()
     return path
 

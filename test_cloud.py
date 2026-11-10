@@ -21,6 +21,13 @@ class CloudTests(unittest.TestCase):
             values = runpy.run_path(str(Path(__file__).with_name("generate_lesson.py")), run_name="test")
         self.assertEqual(values["manim_coding_model"], "test-model")
 
+    def test_settings_prefer_environment_and_support_cloud_secrets(self):
+        import app_settings
+        with patch.dict(os.environ, {"SETTING_TEST": "local"}):
+            self.assertEqual(app_settings.get_setting("SETTING_TEST"), "local")
+        with patch.dict(os.environ, {}, clear=True), patch("streamlit.secrets", {"SETTING_TEST": "cloud"}):
+            self.assertEqual(app_settings.get_setting("SETTING_TEST"), "cloud")
+
     def test_public_mode_stops_without_supabase_configuration(self):
         with patch.dict(os.environ, {"PUBLIC_DEPLOYMENT": "true", "SUPABASE_URL": "", "SUPABASE_PUBLISHABLE_KEY": ""}):
             app = AppTest.from_file(str(Path(__file__).with_name("app.py"))).run()
@@ -56,6 +63,7 @@ class CloudTests(unittest.TestCase):
     def test_upload_retry_reuses_existing_object(self):
         db = MagicMock()
         bucket = db.storage.from_.return_value
+        bucket.upload.side_effect = Exception("Asset already exists")
         state = MagicMock(cloud_user_id="owner")
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp) / "11111111111141118111111111111111"
@@ -63,9 +71,22 @@ class CloudTests(unittest.TestCase):
             (directory / "lesson.mp4").write_bytes(b"test")
             with patch.object(cloud_lessons, "client", return_value=db), patch.object(cloud_lessons.st, "session_state", state):
                 path = cloud_lessons.upload_video(directory, 150)
-        bucket.upload.assert_not_called()
+        bucket.upload.assert_called_once()
         self.assertTrue(path.startswith("owner/"))
         db.table.return_value.update.assert_called_once()
+
+    def test_upload_failure_does_not_mark_lesson_complete(self):
+        db = MagicMock()
+        db.storage.from_.return_value.upload.side_effect = Exception("network unavailable")
+        state = MagicMock(cloud_user_id="owner")
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp) / "11111111111141118111111111111111"
+            directory.mkdir()
+            (directory / "lesson.mp4").write_bytes(b"test")
+            with patch.object(cloud_lessons, "client", return_value=db), patch.object(cloud_lessons.st, "session_state", state):
+                with self.assertRaisesRegex(Exception, "network unavailable"):
+                    cloud_lessons.upload_video(directory, 150)
+        db.table.return_value.update.assert_not_called()
 
     def test_daily_user_limit_checks_before_reserving(self):
         db = MagicMock()

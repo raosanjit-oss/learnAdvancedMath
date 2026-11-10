@@ -1,0 +1,12 @@
+build-essential
+pkg-config
+ffmpeg
+libcairo2-dev
+libpango1.0-dev
+texlive-latex-base
+texlive-latex-extra
+texlive-fonts-recommended
+texlive-science
+dvisvgm
+bubblewrap
+util-linux

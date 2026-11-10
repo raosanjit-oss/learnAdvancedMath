@@ -2,6 +2,7 @@
 !requirements.txt
 !cloud-sdk.lock
 !app.py
+!app_settings.py
 !generate_lesson.py
 !lesson_tools.py
 !cloud_lessons.py

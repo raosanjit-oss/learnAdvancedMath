@@ -5,18 +5,19 @@ from dotenv import load_dotenv
 from groq import Groq
 from google import genai
 from google.genai import types
+from app_settings import get_setting
 from lesson_tools import clean_manim_code, save_manim_code
 
 
 project_directory = Path(__file__).resolve().parent
 load_dotenv(project_directory / ".env")
 topic_viability_model = "openai/gpt-oss-20b"
-manim_coding_model = os.getenv("MANIM_CODING_MODEL", "gemini-3.8-flash")
+manim_coding_model = get_setting("MANIM_CODING_MODEL", "gemini-3.8-flash")
 
 
 def ask_groq(topic, prompt_file):
     """Shared request used by the two small topic functions below."""
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = get_setting("GROQ_API_KEY")
     if not api_key:
         raise ValueError("Add GROQ_API_KEY to the project's .env file first.")
     with open(project_directory / prompt_file, encoding="utf-8") as file:
@@ -55,7 +56,7 @@ def generate_topic_suggestions(topic):
 
 
 def generate_manim_code(topic):
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = get_setting("GOOGLE_API_KEY")
     if not api_key:
         raise ValueError("Add GOOGLE_API_KEY to the project's .env file first.")
     with open(project_directory / "system_prompt.txt", encoding="utf-8") as file:
