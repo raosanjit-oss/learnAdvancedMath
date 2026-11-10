@@ -1,5 +1,17 @@
 # Deployment status and setup
 
+**Hosting blocker verified November 9, 2026:** Hugging Face now requires a paid
+subscription to create Docker/Gradio Spaces on CPU Basic. The connected `sjt-rao`
+account has no PRO subscription and no existing Spaces. No Space has been created
+and no paid upgrade has been enabled. The CPU Basic setup below is therefore not
+a $0 deployment option for this account. See
+https://huggingface.co/docs/huggingface_hub/guides/manage-spaces .
+
+A possible $0 alternative is Streamlit Community Cloud for the UI, Supabase for
+storage/job records, and an outbound polling renderer on the owner's Mac. That
+requires a queue/worker implementation and the Mac to remain awake; it is not
+implemented by the current synchronous renderer.
+
 The local app works. Cloud deployment is not verified until the Linux image
 builds, `verify_host.py` passes, and an actual signed-in generation/upload/playback
 test succeeds on the host. Do not describe a successful build as a successful render.
