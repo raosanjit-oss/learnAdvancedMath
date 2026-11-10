@@ -24,6 +24,11 @@ def auth_options():
     return {"email_redirect_to": app_url}
 
 
+def confirmation_details(email, code):
+    """Build the Supabase request for a six-digit email confirmation code."""
+    return {"email": email.strip(), "token": code.strip(), "type": "email"}
+
+
 def client():
     # Never cache this across users: its auth session belongs to one browser.
     if "supabase_client" not in st.session_state:
@@ -104,7 +109,22 @@ def require_login():
                 st.error("Could not create that account. It may already exist.")
     with create_tab:
         st.divider()
-        st.caption("Confirmation link expired?")
+        st.caption("Confirm with the six-digit code from your email")
+        with st.form("confirm_account", clear_on_submit=True):
+            confirmation_email = st.text_input("Account email", key="confirmation_email")
+            confirmation_code = st.text_input("Confirmation code", max_chars=6, key="confirmation_code")
+            confirm = st.form_submit_button("Confirm account")
+    if confirm:
+        if not confirmation_code.strip().isdigit() or len(confirmation_code.strip()) != 6:
+            st.error("Enter the six-digit code from your newest email.")
+        else:
+            try:
+                db.auth.verify_otp(confirmation_details(confirmation_email, confirmation_code))
+                st.rerun()
+            except Exception:
+                st.error("That code is invalid or expired. Request a new one below.")
+    with create_tab:
+        st.caption("Need a new code?")
         with st.form("resend_confirmation", clear_on_submit=True):
             resend_email = st.text_input("Account email", key="resend_email")
             resend = st.form_submit_button("Send a new confirmation email")
@@ -119,7 +139,7 @@ def require_login():
                 if options:
                     resend_details["options"] = options
                 db.auth.resend(resend_details)
-                st.success("A new confirmation email is on its way. Use only the newest link.")
+                st.success("A new confirmation email is on its way. Use only its newest six-digit code.")
             except Exception:
                 st.error("Could not resend yet. Wait one minute, then try again.")
     st.caption("This first beta is invite-only.")
