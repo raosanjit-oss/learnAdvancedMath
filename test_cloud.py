@@ -15,6 +15,13 @@ import public_limits
 
 
 class CloudTests(unittest.TestCase):
+    def test_generation_has_a_distinct_fallback_model(self):
+        import generate_lesson
+        with patch.object(generate_lesson, "manim_coding_model", "preferred"), patch.object(
+            generate_lesson, "manim_fallback_model", "fallback"
+        ):
+            self.assertEqual(generate_lesson.coding_model_choices(), ["preferred", "fallback"])
+
     def test_auth_redirect_uses_deployed_app_url(self):
         with patch.object(cloud_lessons, "setting", side_effect=lambda name, default=None: {
             "APP_URL": "https://example.streamlit.app/",
