@@ -16,6 +16,14 @@ def enabled():
     return str(setting("PUBLIC_DEPLOYMENT", "false")).lower() == "true"
 
 
+def auth_options():
+    """Tell Supabase where account-confirmation emails should return."""
+    app_url = str(setting("APP_URL", "")).strip().rstrip("/")
+    if not app_url:
+        return {}
+    return {"email_redirect_to": app_url}
+
+
 def client():
     # Never cache this across users: its auth session belongs to one browser.
     if "supabase_client" not in st.session_state:
@@ -83,13 +91,37 @@ def require_login():
             st.error("Use a password with at least 8 characters.")
         else:
             try:
-                response = db.auth.sign_up({"email": new_email.strip(), "password": new_password})
+                sign_up_details = {"email": new_email.strip(), "password": new_password}
+                options = auth_options()
+                if options:
+                    sign_up_details["options"] = options
+                response = db.auth.sign_up(sign_up_details)
                 if response.session:
                     st.rerun()
                 else:
                     st.success("Check your email to confirm your account, then return here to sign in.")
             except Exception:
                 st.error("Could not create that account. It may already exist.")
+    with create_tab:
+        st.divider()
+        st.caption("Confirmation link expired?")
+        with st.form("resend_confirmation", clear_on_submit=True):
+            resend_email = st.text_input("Account email", key="resend_email")
+            resend = st.form_submit_button("Send a new confirmation email")
+    if resend:
+        allowed_emails = {email.strip().lower() for email in str(setting("BETA_EMAILS", "")).split(",") if email.strip()}
+        if resend_email.strip().lower() not in allowed_emails:
+            st.error("That email isn't on the beta invitation list.")
+        else:
+            try:
+                resend_details = {"type": "signup", "email": resend_email.strip()}
+                options = auth_options()
+                if options:
+                    resend_details["options"] = options
+                db.auth.resend(resend_details)
+                st.success("A new confirmation email is on its way. Use only the newest link.")
+            except Exception:
+                st.error("Could not resend yet. Wait one minute, then try again.")
     st.caption("This first beta is invite-only.")
     st.stop()
 
