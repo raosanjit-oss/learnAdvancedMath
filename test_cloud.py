@@ -28,6 +28,12 @@ class CloudTests(unittest.TestCase):
         with patch.object(cloud_lessons, "setting", return_value=""):
             self.assertEqual(cloud_lessons.auth_options(), {})
 
+    def test_email_confirmation_code_request(self):
+        self.assertEqual(
+            cloud_lessons.confirmation_details(" student@example.com ", " 123456 "),
+            {"email": "student@example.com", "token": "123456", "type": "email"},
+        )
+
     def test_model_name_never_comes_from_api_key(self):
         import runpy
         with patch.dict(os.environ, {"GOOGLE_API_KEY": "secret-test-value", "MANIM_CODING_MODEL": "test-model"}):
