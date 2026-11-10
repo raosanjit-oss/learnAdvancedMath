@@ -75,6 +75,13 @@ class CloudTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 lesson_tools.linux_sandbox_command(["python"], Path("/jobs/abc"))
 
+    def test_bubblewrap_host_failure_has_a_clear_message(self):
+        log = "bwrap: Creating new namespace failed: Operation not permitted"
+        self.assertIn("blocks the secure Bubblewrap sandbox", lesson_tools.render_failure_message(log))
+
+    def test_latex_failure_has_a_clear_message(self):
+        self.assertIn("LaTeX", lesson_tools.render_failure_message("LaTeX compilation error"))
+
     def test_one_render_at_a_time_and_lock_released_on_error(self):
         with patch.object(public_limits, "counts", {}):
             with self.assertRaises(RuntimeError):
