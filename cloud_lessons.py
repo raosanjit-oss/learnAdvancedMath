@@ -1,6 +1,10 @@
 """Optional Supabase accounts and storage; local mode needs no cloud account."""
 
 from datetime import datetime, timezone
+import json
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 from uuid import UUID
 
 import streamlit as st
@@ -149,41 +153,77 @@ def require_login():
 def check_allowance():
     db = client()
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-    attempts = db.table("lessons").select("id").gte("created_at", today).execute().data
+    attempts = db.table("lessons").select("id").in_(
+        "status", ["queued", "rendering", "complete", "failed"]
+    ).gte("created_at", today).execute().data
     if len(attempts) >= 2:
         raise ValueError("You've reached the beta limit of two new lessons per day. Try tomorrow.")
 
 
-def reserve_lesson(directory, topic):
-    check_allowance()
-    db = client()
-    db.table("lessons").insert({
-        "id": str(UUID(directory.name)), "user_id": st.session_state.cloud_user_id,
-        "topic": topic, "status": "saved",
-    }).execute()
+def render_settings():
+    token = setting("GITHUB_ACTIONS_TOKEN")
+    repository = setting("GITHUB_REPOSITORY", "raosanjit-oss/learnAdvancedMath")
+    if not token:
+        raise ValueError("Add GITHUB_ACTIONS_TOKEN to the Streamlit secrets first.")
+    if not repository or "/" not in repository:
+        raise ValueError("GITHUB_REPOSITORY must look like owner/repository.")
+    return token, repository
 
 
-def upload_video(directory, duration):
-    db = client()
-    lesson_id = str(UUID(directory.name))
-    video = directory / "lesson.mp4"
-    if video.stat().st_size > 50 * 1024 * 1024:
-        raise ValueError("This video exceeds the beta's 50 MB storage limit.")
-    path = f"{st.session_state.cloud_user_id}/{lesson_id}/lesson.mp4"
-    bucket = db.storage.from_("lesson-videos")
-    # Upload once. A retry may find that the upload succeeded before metadata did.
+def dispatch_render(lesson_id):
+    """Start the isolated GitHub Actions renderer without exposing its token."""
+    token, repository = render_settings()
+    url = f"https://api.github.com/repos/{repository}/actions/workflows/render_lesson.yml/dispatches"
+    body = json.dumps({"ref": "main", "inputs": {"lesson_id": str(lesson_id)}}).encode()
+    request = Request(url, data=body, method="POST", headers={
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    })
     try:
-        with video.open("rb") as file:
-            bucket.upload(path, file, file_options={"content-type": "video/mp4", "upsert": "false"})
-    except Exception as error:
-        if "already exists" not in str(error).lower() and "duplicate" not in str(error).lower():
-            raise
-    db.table("lessons").update({"status": "complete", "duration": duration, "video_path": path}).eq("id", lesson_id).execute()
-    return path
+        with urlopen(request, timeout=20) as response:
+            if response.status != 204:
+                raise ValueError(f"GitHub returned HTTP {response.status} instead of starting the renderer.")
+    except HTTPError as error:
+        raise ValueError(f"GitHub could not start the renderer (HTTP {error.code}).") from error
+    except URLError as error:
+        raise ValueError("Could not reach GitHub to start the renderer.") from error
+
+
+def queue_lesson(directory, topic):
+    check_allowance()
+    render_settings()
+    db = client()
+    lesson_id = str(UUID(Path(directory).name))
+    source_code = (Path(directory) / "lesson.py").read_text(encoding="utf-8")
+    db.table("lessons").insert({
+        "id": lesson_id,
+        "user_id": st.session_state.cloud_user_id,
+        "topic": topic,
+        "status": "queued",
+        "source_code": source_code,
+    }).execute()
+    try:
+        dispatch_render(lesson_id)
+    except Exception:
+        db.table("lessons").delete().eq("id", lesson_id).execute()
+        raise
+    return lesson_id
+
+
+def lesson_status(lesson_id):
+    return client().table("lessons").select(
+        "id,topic,status,duration,video_path,error_message"
+    ).eq("id", lesson_id).single().execute().data
 
 
 def recent_lessons():
-    return client().table("lessons").select("id,topic,duration,video_path").eq("status", "complete").order("created_at", desc=True).limit(12).execute().data
+    return client().table("lessons").select(
+        "id,topic,status,duration,video_path,error_message"
+    ).in_("status", ["queued", "rendering", "complete", "failed"]).order(
+        "created_at", desc=True
+    ).limit(12).execute().data
 
 
 def video_url(path):
