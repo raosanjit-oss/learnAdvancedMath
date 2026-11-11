@@ -24,7 +24,7 @@ if public_mode:
 # These values survive Streamlit's reruns when a button or input changes.
 defaults = {
     "stage": "input", "topic": "", "suggestions": [], "error": "",
-    "video_path": "", "lesson_directory": "", "duration": 0,
+    "video_path": "", "lesson_directory": "", "duration": 0, "job_id": "",
 }
 for name, value in defaults.items():
     if name not in st.session_state:
@@ -94,13 +94,18 @@ def create_video_in_slot(retry_render=False):
             else:
                 status.update(label="Writing your visual explanation…")
                 st.write("Choosing the examples, visuals, and pace for your topic.")
-                if public_mode:
-                    cloud_lessons.check_allowance()
                 code = generate_manim_code(st.session_state.topic)
                 status.update(label="Checking your lesson…")
                 directory = save_lesson_code(clean_lesson_code(code), st.session_state.topic)
                 if public_mode:
-                    cloud_lessons.reserve_lesson(directory, st.session_state.topic)
+                    status.update(label="Sending your lesson to the secure renderer…")
+                    job_id = cloud_lessons.queue_lesson(directory, st.session_state.topic)
+                    shutil.rmtree(directory)
+                    st.session_state.update(
+                        job_id=job_id, lesson_directory="", stage="waiting",
+                    )
+                    status.update(label="Your lesson is queued", state="complete", expanded=False)
+                    return
                 st.session_state.lesson_directory = str(directory)
             status.update(label="Animating your video in 1080p…")
             st.write("This can take several minutes. Keep this page open while the video is made.")
@@ -110,13 +115,7 @@ def create_video_in_slot(retry_render=False):
             if saved_metadata.get("status") != "complete" or not video_path.is_file():
                 video_path = render_video(directory)
             metadata = json.loads((directory / "metadata.json").read_text())
-            if public_mode:
-                status.update(label="Saving your private lesson…")
-                video_path = cloud_lessons.upload_video(directory, metadata["duration"])
             st.session_state.update(video_path=str(video_path), duration=metadata["duration"], stage="complete")
-            if public_mode:
-                shutil.rmtree(directory)
-                st.session_state.lesson_directory = ""
             status.update(label="Your lesson is ready", state="complete", expanded=False)
         except Exception as error:
             st.session_state.stage = "error"
@@ -132,6 +131,30 @@ if public_mode:
         st.stop()
 else:
     lessons = recent_lessons()
+
+
+def refresh_cloud_job():
+    if not public_mode or not st.session_state.job_id:
+        return
+    job = cloud_lessons.lesson_status(st.session_state.job_id)
+    st.session_state.topic = job["topic"]
+    if job["status"] == "complete":
+        st.session_state.update(
+            stage="complete", video_path=job["video_path"], duration=job["duration"], error="",
+        )
+    elif job["status"] == "failed":
+        st.session_state.update(
+            stage="error", error=job["error_message"] or "The rendering worker could not finish this lesson.",
+        )
+    else:
+        st.session_state.stage = "waiting"
+
+
+if public_mode and st.session_state.job_id:
+    try:
+        refresh_cloud_job()
+    except Exception as error:
+        show_error(error)
 with st.sidebar:
     st.markdown('<div class="brand">∿ <span>Visual Math</span></div>', unsafe_allow_html=True)
     st.caption("A little curiosity. A clearer picture.")
@@ -145,10 +168,26 @@ with st.sidebar:
     if not lessons:
         st.caption("Your finished lessons will appear here.")
     for lesson in lessons:
-        if st.button(lesson["topic"], key=lesson["video_path"], use_container_width=True):
+        lesson_status = lesson.get("status", "complete")
+        label = lesson["topic"]
+        if lesson_status in ("queued", "rendering"):
+            label = "⏳  " + label
+        elif lesson_status == "failed":
+            label = "⚠  " + label
+        if st.button(label, key=lesson.get("id") or lesson["video_path"], use_container_width=True):
+            if lesson_status == "complete":
+                stage = "complete"
+                error = ""
+            elif lesson_status == "failed":
+                stage = "error"
+                error = lesson.get("error_message") or "The rendering worker could not finish this lesson."
+            else:
+                stage = "waiting"
+                error = ""
             st.session_state.update(
-                stage="complete", topic=lesson["topic"], video_path=lesson["video_path"],
-                duration=lesson["duration"], error="", lesson_directory=str(Path(lesson["video_path"]).parent),
+                stage=stage, topic=lesson["topic"], video_path=lesson.get("video_path") or "",
+                duration=lesson.get("duration") or 0, error=error, lesson_directory="",
+                job_id=lesson.get("id") or "",
             )
             st.rerun()
     st.divider()
@@ -157,7 +196,14 @@ with st.sidebar:
 
 st.markdown('<div class="topline"><span>A SPACE TO UNDERSTAND</span><span>MATH &amp; PHYSICS</span></div>', unsafe_allow_html=True)
 
-if st.session_state.stage == "complete":
+if st.session_state.stage == "waiting":
+    st.markdown('<div class="eyebrow">YOUR VISUAL LESSON</div>', unsafe_allow_html=True)
+    st.title(st.session_state.topic)
+    st.subheader("Your lesson is rendering securely.")
+    st.caption("GitHub is creating the 1080p60 video in an isolated container. You may close this page and return later.")
+    if st.button("Check rendering progress  →", type="primary"):
+        st.rerun()
+elif st.session_state.stage == "complete":
     st.markdown('<div class="eyebrow">YOUR VISUAL LESSON</div>', unsafe_allow_html=True)
     st.title(st.session_state.topic)
     total_seconds = round(st.session_state.duration)
