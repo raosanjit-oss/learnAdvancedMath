@@ -1,78 +1,80 @@
-# Deployment status and setup
+# Public beta deployment
 
-**Hosting blocker verified November 9, 2026:** Hugging Face now requires a paid
-subscription to create Docker/Gradio Spaces on CPU Basic. The connected `sjt-rao`
-account has no PRO subscription and no existing Spaces. No Space has been created
-and no paid upgrade has been enabled. The CPU Basic setup below is therefore not
-a $0 deployment option for this account. See
-https://huggingface.co/docs/huggingface_hub/guides/manage-spaces .
+## Architecture
 
-A possible $0 alternative is Streamlit Community Cloud for the UI and rendering,
-with Supabase for private storage. The repository now includes `packages.txt` for
-this experiment. It must pass the Bubblewrap isolation check and a complete hosted
-render before the link is shared; shared CPU/RAM limits may make the approach
-unsuitable for 1080p/60 FPS output.
+Streamlit handles sign-in, topic checks, code generation, and playback. Supabase
+stores owner-protected job records and private videos. A standard GitHub-hosted
+runner renders each queued lesson inside the pinned Manim Docker image.
 
-The local app works. Cloud deployment is not verified until the Linux image
-builds, `verify_host.py` passes, and an actual signed-in generation/upload/playback
-test succeeds on the host. Do not describe a successful build as a successful render.
+Generated Python never runs in Streamlit. The rendering container has no network,
+a read-only root filesystem, no Linux capabilities, no provider keys, and only
+its own temporary job folder. The Supabase service-role key exists only in the
+GitHub Actions host process and is never passed into the container.
 
-## Accounts and storage
+## Streamlit secrets
 
-Supabase project: `zbitxwoucoqlswlradmt` (learnAdvancedMath).
-`cloud_schema.sql` is the setup SQL applied to that project's initially empty
-database. Do not reapply it to the existing project. It creates a private
-`lesson-videos` bucket and an owner-protected `lessons` table. Each video has a
-50 MiB maximum, and signed playback links expire after one hour.
+Add these through the app's protected Advanced settings, never to GitHub files:
 
-The app allows account creation only for the exact comma-separated addresses in
-`BETA_EMAILS`; Supabase may require email confirmation before first sign-in. Never
-set a service-role key in this app: it uses a publishable key and each user's
-authenticated session. No student videos are bundled in the repository/image.
-
-## Free host
-
-Use a Hugging Face Docker Space with **CPU Basic**, without paid hardware or paid
-persistent storage. Free account availability must be checked when creating it.
-Set these in Space settings (provider keys as Secrets, never files in the repo):
-
-```
-GROQ_API_KEY=<your key>
-GOOGLE_API_KEY=<your key>
-MANIM_CODING_MODEL=<a model your account can access on its free tier>
-SUPABASE_URL=https://zbitxwoucoqlswlradmt.supabase.co
-SUPABASE_PUBLISHABLE_KEY=<publishable key from Supabase>
-BETA_EMAILS=<invited testers' emails>
+```toml
+PUBLIC_DEPLOYMENT = "true"
+APP_URL = "https://learnadvancedmath.streamlit.app"
+GROQ_API_KEY = "..."
+GOOGLE_API_KEY = "..."
+MANIM_CODING_MODEL = "gemini-3.8-flash"
+MANIM_FALLBACK_MODEL = "gemini-3.5-flash"
+SUPABASE_URL = "https://zbitxwoucoqlswlradmt.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "..."
+BETA_EMAILS = "..."
+GITHUB_REPOSITORY = "raosanjit-oss/learnAdvancedMath"
+GITHUB_ACTIONS_TOKEN = "..."
 ```
 
-`PUBLIC_DEPLOYMENT=true` is set by the Dockerfile. On a Mac, omit it to keep the
-existing local experience. To test cloud sign-in locally, set it in your shell
-with the Supabase settings above; the Mac renderer is still used.
+Create `GITHUB_ACTIONS_TOKEN` as a fine-grained personal access token restricted
+to only `raosanjit-oss/learnAdvancedMath`. Grant Metadata read and Actions
+read/write. Do not grant repository contents write, administration, or account
+permissions.
 
-The Linux renderer uses Bubblewrap with separate process/network namespaces,
-read-only system libraries, only one writable job folder, a scrubbed environment,
-and process/time/memory/file limits. Some shared hosts block nested namespaces.
-**If `verify_host.py` fails, do not remove isolation flags or run code directly.**
-That host is not compatible with this renderer; use a separately isolated renderer.
-No Docker build or Linux render has yet been verified on this Mac (Docker is absent).
+## GitHub Actions secrets
 
-One video job runs at a time; busy users are asked to retry. Initial beta limits:
-five video attempts and 100 topic checks per server/day, two saved generation
-attempts per account/day. Server-wide counters reset on process restart; these
-are beta throttles, not a billing guarantee or durable distributed queue. Provider
-accounts must remain on free billing configurations. Storage and bandwidth quotas
-still apply. Invite only a handful of testers initially.
+In GitHub, open **Settings → Secrets and variables → Actions** and add:
 
-Completed videos upload to Supabase before local files are removed. An upload
-retry reuses the rendered MP4. Failed jobs remain on the host for debugging and
-are lost on restart; they are not exposed in another user's sidebar. A browser
-reload can require signing in again; sessions are not persisted in cookies yet.
+```text
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+```
 
-## Checks before sharing the link
+Copy the URL and service-role key from the selected Supabase project. The
+service-role key is a backend secret that bypasses RLS. Never put it in Streamlit,
+the repository, a browser, an issue, or a chat message.
 
-1. Build the Docker image and pass its startup isolation check.
-2. Verify an invited account signs in and an uninvited account is blocked.
-3. Generate one lesson using confirmed free API tiers; verify 1080p/60 FPS,
-   upload, playback, and that another account cannot access its record/video.
-4. Restart the host and verify the saved lesson still appears from Supabase.
-5. Keep CPU Basic selected. Do not upgrade hardware automatically.
+The repository must remain public for standard GitHub-hosted Actions runners to
+remain free. Do not select a larger runner. GitHub can change its free-use terms,
+so check billing settings before inviting more testers.
+
+## Supabase
+
+Project: `zbitxwoucoqlswlradmt` (`learnAdvancedMath`). The current schema has:
+
+- owner-only lesson rows protected by RLS;
+- queued, rendering, complete, and failed states;
+- generated source stored only until a render completes;
+- a private `lesson-videos` bucket;
+- signed playback links that expire after one hour;
+- a 50 MiB video limit for the initial beta.
+
+Authenticated users can insert and read only their own queue records. They cannot
+mark jobs complete or choose a video path. Only the GitHub worker's service role
+can do that.
+
+## Verification
+
+1. Run `python -m unittest -v test_mvp test_cloud` locally.
+2. Manually dispatch `Render queued Manim lesson` with a real queued lesson UUID.
+3. Confirm the workflow uses the standard `ubuntu-latest` runner.
+4. Confirm the container has no network and receives no secrets.
+5. Confirm the lesson changes from `queued` to `rendering` to `complete`.
+6. Confirm the MP4 is 1920 × 1080, 60 FPS, H.264, 2–10 minutes, and under 50 MiB.
+7. Confirm its signed URL plays only for the lesson owner.
+
+Do not describe the cloud renderer as complete until one real workflow has
+rendered, uploaded, and played a lesson successfully.
