@@ -12,6 +12,7 @@ from streamlit.testing.v1 import AppTest
 import cloud_lessons
 import lesson_tools
 import public_limits
+import render_worker
 
 
 class CloudTests(unittest.TestCase):
@@ -82,6 +83,14 @@ class CloudTests(unittest.TestCase):
     def test_latex_failure_has_a_clear_message(self):
         self.assertIn("LaTeX", lesson_tools.render_failure_message("LaTeX compilation error"))
 
+    def test_github_worker_container_has_no_network_or_secrets(self):
+        command = render_worker.container_command(Path("/tmp/job"), "manim", "lesson.py")
+        self.assertIn("none", command)
+        self.assertIn("--read-only", command)
+        self.assertIn("no-new-privileges", command)
+        self.assertIn("ALL", command)
+        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", " ".join(command))
+
     def test_one_render_at_a_time_and_lock_released_on_error(self):
         with patch.object(public_limits, "counts", {}):
             with self.assertRaises(RuntimeError):
@@ -93,68 +102,85 @@ class CloudTests(unittest.TestCase):
             with public_limits.generation_slot():
                 pass
 
-    def test_upload_retry_reuses_existing_object(self):
+    def test_queue_stores_validated_source_then_dispatches(self):
         db = MagicMock()
-        bucket = db.storage.from_.return_value
-        bucket.upload.side_effect = Exception("Asset already exists")
         state = MagicMock(cloud_user_id="owner")
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp) / "11111111111141118111111111111111"
             directory.mkdir()
-            (directory / "lesson.mp4").write_bytes(b"test")
-            with patch.object(cloud_lessons, "client", return_value=db), patch.object(cloud_lessons.st, "session_state", state):
-                path = cloud_lessons.upload_video(directory, 150)
-        bucket.upload.assert_called_once()
-        self.assertTrue(path.startswith("owner/"))
-        db.table.return_value.update.assert_called_once()
+            (directory / "lesson.py").write_text("from manim import *\n")
+            with patch.object(cloud_lessons, "client", return_value=db), patch.object(
+                cloud_lessons.st, "session_state", state
+            ), patch.object(cloud_lessons, "check_allowance"), patch.object(
+                cloud_lessons, "render_settings", return_value=("token", "owner/repository")
+            ), patch.object(cloud_lessons, "dispatch_render") as dispatch:
+                lesson_id = cloud_lessons.queue_lesson(directory, "Slope")
+        inserted = db.table.return_value.insert.call_args.args[0]
+        self.assertEqual(inserted["status"], "queued")
+        self.assertEqual(inserted["source_code"], "from manim import *\n")
+        dispatch.assert_called_once_with(lesson_id)
 
-    def test_upload_failure_does_not_mark_lesson_complete(self):
+    def test_dispatch_failure_removes_unstarted_queue_record(self):
         db = MagicMock()
-        db.storage.from_.return_value.upload.side_effect = Exception("network unavailable")
         state = MagicMock(cloud_user_id="owner")
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp) / "11111111111141118111111111111111"
             directory.mkdir()
-            (directory / "lesson.mp4").write_bytes(b"test")
-            with patch.object(cloud_lessons, "client", return_value=db), patch.object(cloud_lessons.st, "session_state", state):
-                with self.assertRaisesRegex(Exception, "network unavailable"):
-                    cloud_lessons.upload_video(directory, 150)
-        db.table.return_value.update.assert_not_called()
+            (directory / "lesson.py").write_text("from manim import *\n")
+            with patch.object(cloud_lessons, "client", return_value=db), patch.object(
+                cloud_lessons.st, "session_state", state
+            ), patch.object(cloud_lessons, "check_allowance"), patch.object(
+                cloud_lessons, "render_settings", return_value=("token", "owner/repository")
+            ), patch.object(cloud_lessons, "dispatch_render", side_effect=ValueError("GitHub unavailable")):
+                with self.assertRaisesRegex(ValueError, "GitHub unavailable"):
+                    cloud_lessons.queue_lesson(directory, "Slope")
+        db.table.return_value.delete.assert_called_once()
 
     def test_daily_user_limit_checks_before_reserving(self):
         db = MagicMock()
-        db.table.return_value.select.return_value.gte.return_value.execute.return_value.data = [{"id": "1"}, {"id": "2"}]
+        db.table.return_value.select.return_value.in_.return_value.gte.return_value.execute.return_value.data = [{"id": "1"}, {"id": "2"}]
         with patch.object(cloud_lessons, "client", return_value=db), self.assertRaises(ValueError):
             cloud_lessons.check_allowance()
         db.table.return_value.insert.assert_not_called()
 
-    def test_cloud_generation_uploads_and_plays_remote_video(self):
+    def test_cloud_generation_queues_then_plays_completed_video(self):
         import generate_lesson
-        from test_mvp import VALID_CODE, StreamlitFlowTests
+        from test_mvp import VALID_CODE
         with tempfile.TemporaryDirectory() as tmp, ExitStack() as stack:
             stack.enter_context(patch.object(cloud_lessons, "enabled", return_value=True))
             stack.enter_context(patch.object(cloud_lessons, "require_login"))
             stack.enter_context(patch.object(cloud_lessons, "recent_lessons", return_value=[]))
-            stack.enter_context(patch.object(cloud_lessons, "check_allowance"))
-            reserve = stack.enter_context(patch.object(cloud_lessons, "reserve_lesson"))
-            upload = stack.enter_context(patch.object(cloud_lessons, "upload_video", return_value="owner/lesson/lesson.mp4"))
+            queue = stack.enter_context(patch.object(
+                cloud_lessons, "queue_lesson", return_value="11111111-1111-4111-8111-111111111111"
+            ))
+            status = stack.enter_context(patch.object(cloud_lessons, "lesson_status", return_value={
+                "id": "11111111-1111-4111-8111-111111111111", "topic": "What is slope?",
+                "status": "queued", "duration": None, "video_path": None, "error_message": None,
+            }))
             stack.enter_context(patch.object(cloud_lessons, "video_url", return_value="https://example.com/lesson.mp4"))
             stack.enter_context(patch.object(public_limits, "counts", {}))
             stack.enter_context(patch.object(lesson_tools, "lessons_directory", Path(tmp)))
             stack.enter_context(patch.object(generate_lesson, "check_topic", return_value="Accepted"))
             stack.enter_context(patch.object(generate_lesson, "generate_manim_code", return_value=VALID_CODE))
-            stack.enter_context(patch.object(lesson_tools, "render_video", side_effect=StreamlitFlowTests.fake_render))
+            render = stack.enter_context(patch.object(lesson_tools, "render_video"))
             app = AppTest.from_file(str(Path(__file__).with_name("app.py"))).run()
             app.text_area(key="topic_input").set_value("What is slope?")
             next(b for b in app.button if b.label == "Find my lesson  →").click().run()
             next(b for b in app.button if b.label == "Create my video  →").click().run()
             self.assertFalse(app.exception)
+            self.assertEqual(app.session_state["stage"], "waiting")
+            queue.assert_called_once()
+            render.assert_not_called()
+            self.assertEqual(list(Path(tmp).iterdir()), [])
+            status.return_value = {
+                "id": "11111111-1111-4111-8111-111111111111", "topic": "What is slope?",
+                "status": "complete", "duration": 145.0,
+                "video_path": "owner/lesson/lesson.mp4", "error_message": None,
+            }
+            next(b for b in app.button if b.label == "Check rendering progress  →").click().run()
             self.assertEqual(app.session_state["stage"], "complete")
             self.assertEqual(app.session_state["video_path"], "owner/lesson/lesson.mp4")
             self.assertEqual(len(app.get("video")), 1)
-            reserve.assert_called_once()
-            upload.assert_called_once()
-            self.assertEqual(list(Path(tmp).iterdir()), [])
 
 
 if __name__ == "__main__":
