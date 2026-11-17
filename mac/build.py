@@ -19,7 +19,7 @@ resources.mkdir(parents=True, exist_ok=True)
 executable.parent.mkdir(exist_ok=True)
 
 subprocess.run(["swiftc", "-parse-as-library", "-O", "-target", "arm64-apple-macos13.0",
-                "-module-cache-path", str(destination / "module-cache"),
+                "-module-cache-path", str(Path(stage.name) / "module-cache"),
                 str(here / "VisualMath.swift"), str(here / "LessonForm.swift"), "-o", str(executable)], check=True)
 for path in [here / "run.sh", here / "Slope.visualmath", here / "render_document.py", here.parent / "lesson_tools.py"]:
     shutil.copyfile(path, resources / path.name)
@@ -41,5 +41,6 @@ info = {
 (app / "Contents/Info.plist").write_bytes(plistlib.dumps(info))
 subprocess.run(["codesign", "--force", "--sign", "-", str(app)], check=True)
 subprocess.run(["codesign", "--verify", "--strict", str(app)], check=True)
+destination.mkdir(exist_ok=True)
 subprocess.run(["ditto", "-c", "-k", "--keepParent", str(app), str(destination / "Visual-Math-Mac.zip")], check=True)
 print(destination / "Visual-Math-Mac.zip")
