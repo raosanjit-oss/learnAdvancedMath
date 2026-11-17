@@ -14,7 +14,15 @@ The generation prompt asks for a focused 2–10 minute explanation, choosing the
 length to suit the topic. Videos render directly at 1920 × 1080 and 60 FPS; there
 is no separate preview render and no Manim Slides dependency.
 
-## Start the app
+## Mac desktop app
+
+On an Apple Silicon Mac running macOS 13 or later, unzip `Visual-Math-Mac.zip` and move **Visual Math.app** to Applications. Choose **Try a sample** and **Render video** for an offline test. The first render unpacks Python, Manim, FFmpeg, and TinyTeX into your Application Support folder. Allow roughly 2 GB for the app and its runtime, plus space for video files.
+
+For a new question, choose **Create a lesson** and sign in to the beta. Select **On my Mac**, create the lesson, and download the lesson file. In the app the download opens for rendering. If you used your browser, double-click the downloaded `.visualmath` file or choose **Open lesson file** in the app. Click **Render video** to render and watch it. Videos are stored in `~/Movies/Visual Math/<lesson ID>/lesson.mp4`. Online generation uses the website’s provider keys. Playback and rendering run locally.
+
+The development build is ad-hoc signed. Public distribution through Gatekeeper requires a Developer ID signing and notarization step. To rebuild on an Apple Silicon development Mac with the Command Line Tools and Python 3.11+, pack a clean `manim_env` (including TinyTeX) with `conda-pack -n manim_env -o runtime.tar.gz`, then run `python mac/build.py /path/to/runtime.tar.gz`. The app and zip appear in `dist/`.
+
+## Start the Streamlit app
 
 Open a terminal in `math-animation-mvp`, then run:
 

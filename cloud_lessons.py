@@ -75,8 +75,8 @@ def require_login():
             st.session_state.pop("cloud_user_id", None)
             st.error("Your session expired. Reload the page and sign in again.")
             st.stop()
-    st.title("Your space to understand.")
-    st.caption("Sign in or create an invited beta account. Your lessons stay private.")
+    st.title("Sign in to Visual Math")
+    st.caption("If you received a beta invitation, you can create an account with your invited email address.")
     sign_in_tab, create_tab = st.tabs(["Sign in", "Create account"])
     with sign_in_tab, st.form("sign_in", clear_on_submit=True):
         email = st.text_input("Email")
@@ -146,7 +146,6 @@ def require_login():
                 st.success("A new confirmation email is on its way. Use only its newest six-digit code.")
             except Exception:
                 st.error("Could not resend yet. Wait one minute, then try again.")
-    st.caption("This first beta is invite-only.")
     st.stop()
 
 

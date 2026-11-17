@@ -151,6 +151,18 @@ class StreamlitFlowTests(unittest.TestCase):
         self.assertEqual(self.app.session_state["stage"], "input")
         self.assertIn("Enter a math", self.app.error[0].value)
 
+    def test_desktop_choice_returns_a_document_without_starting_a_render(self):
+        self.check_topic.return_value = "Accepted"
+        self.submit_topic("Why is slope rise over run?")
+        self.app.radio[0].set_value("On my Mac").run()
+        self.click("Create my video  →")
+        lesson = json.loads(self.app.session_state["desktop_lesson"])
+        self.assertEqual(lesson["source"], VALID_CODE)
+        self.assertEqual(lesson["topic"], "Why is slope rise over run?")
+        self.assertEqual(self.app.session_state["stage"], "desktop")
+        self.assertEqual(len(self.app.get("download_button")), 1)
+        self.render.assert_not_called()
+
     def test_rejected_topic_never_generates_or_renders(self):
         self.check_topic.return_value = "Rejected"
         self.submit_topic("Write a restaurant review")
