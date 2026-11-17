@@ -20,7 +20,7 @@ On an Apple Silicon Mac running macOS 13 or later, unzip `Visual-Math-Mac.zip` a
 
 For a new question, choose **Create a lesson** and sign in to the beta. Select **On my Mac**, create the lesson, and download the lesson file. In the app the download opens for rendering. If you used your browser, double-click the downloaded `.visualmath` file or choose **Open lesson file** in the app. Click **Render video** to render and watch it. Videos are stored in `~/Movies/Visual Math/<lesson ID>/lesson.mp4`. Online generation uses the website’s provider keys. Playback and rendering run locally.
 
-The development build is ad-hoc signed. Public distribution through Gatekeeper requires a Developer ID signing and notarization step. To rebuild on an Apple Silicon development Mac with the Command Line Tools and Python 3.11+, pack a clean `manim_env` (including TinyTeX) with `conda-pack -n manim_env -o runtime.tar.gz`, then run `python mac/build.py /path/to/runtime.tar.gz`. The app and zip appear in `dist/`.
+The development build is ad-hoc signed. Public distribution through Gatekeeper requires a Developer ID signing and notarization step. To rebuild on an Apple Silicon development Mac with the Command Line Tools and Python 3.11+, pack a clean `manim_env` (including TinyTeX) with `conda-pack -n manim_env -o runtime.tar.gz`, then run `python mac/build.py /path/to/runtime.tar.gz`. The zip appears in `dist/`.
 
 ## Start the Streamlit app
 

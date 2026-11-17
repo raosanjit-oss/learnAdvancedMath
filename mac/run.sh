@@ -12,7 +12,7 @@ if [ ! -d "$runtime" ]; then
     # publish the version symlink only after the installation finishes.
     installation=$(mktemp -d "$support/runtime.XXXXXXXX")
     /usr/bin/tar -xzf "$resources/runtime.tar.gz" -C "$installation"
-    "$installation/bin/python" -I "$installation/bin/conda-unpack"
+    "$installation/bin/python" -Es "$installation/bin/conda-unpack"
     if [ ! -d "$runtime" ]; then ln -s "$installation" "$runtime"; fi
 fi
 physical=$(cd "$runtime" && pwd -P)

@@ -42,5 +42,4 @@ info = {
 subprocess.run(["codesign", "--force", "--sign", "-", str(app)], check=True)
 subprocess.run(["codesign", "--verify", "--strict", str(app)], check=True)
 subprocess.run(["ditto", "-c", "-k", "--keepParent", str(app), str(destination / "Visual-Math-Mac.zip")], check=True)
-subprocess.run(["ditto", str(app), str(destination / app.name)], check=True)
 print(destination / "Visual-Math-Mac.zip")
