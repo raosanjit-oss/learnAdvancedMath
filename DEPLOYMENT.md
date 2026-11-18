@@ -24,7 +24,6 @@ MANIM_CODING_MODEL = "gemini-3.8-flash"
 MANIM_FALLBACK_MODEL = "gemini-3.5-flash"
 SUPABASE_URL = "https://zbitxwoucoqlswlradmt.supabase.co"
 SUPABASE_PUBLISHABLE_KEY = "..."
-BETA_EMAILS = "..."
 GITHUB_REPOSITORY = "raosanjit-oss/learnAdvancedMath"
 GITHUB_ACTIONS_TOKEN = "..."
 ```
@@ -52,6 +51,10 @@ remain free. Do not select a larger runner. GitHub can change its free-use terms
 so check billing settings before inviting more testers.
 
 ## Supabase
+
+Email registration is open to everyone. If email confirmation is enabled, configure
+a custom SMTP sender for public signups. Supabase's default sender only delivers
+to project team addresses.
 
 Project: `zbitxwoucoqlswlradmt` (`learnAdvancedMath`). The current schema has:
 
