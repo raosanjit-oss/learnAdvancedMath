@@ -16,6 +16,29 @@ import render_worker
 
 
 class CloudTests(unittest.TestCase):
+    def test_student_outside_old_invite_list_can_register_resend_and_sign_in(self):
+        db = MagicMock()
+        db.auth.get_session.return_value = None
+        db.auth.sign_up.return_value.session = None
+        student = "new-student@example.org"
+        with patch.object(cloud_lessons, "client", return_value=db), patch.dict(os.environ, {
+            "BETA_EMAILS": "someone-else@example.org", "APP_URL": "",
+        }):
+            app = AppTest.from_string("from cloud_lessons import require_login\nrequire_login()").run()
+            app.text_input(key="new_email").set_value(student)
+            app.text_input(key="new_password").set_value("test-password")
+            next(b for b in app.button if b.label == "Create account").click().run()
+            db.auth.sign_up.assert_called_once_with({"email": student, "password": "test-password"})
+            app.text_input(key="resend_email").set_value(student)
+            next(b for b in app.button if b.label == "Send a new confirmation email").click().run()
+            db.auth.resend.assert_called_once_with({"type": "signup", "email": student})
+            db.auth.get_session.return_value = object()
+            db.auth.get_user.return_value.user.id = "student-id"
+            db.auth.get_user.return_value.user.email = student
+            app.run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.session_state["cloud_user_id"], "student-id")
+
     def test_generation_has_a_distinct_fallback_model(self):
         import generate_lesson
         with patch.object(generate_lesson, "manim_coding_model", "preferred"), patch.object(
