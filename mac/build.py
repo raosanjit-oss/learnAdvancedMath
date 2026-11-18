@@ -18,9 +18,12 @@ executable = app / "Contents/MacOS/VisualMath"
 resources.mkdir(parents=True, exist_ok=True)
 executable.parent.mkdir(exist_ok=True)
 
+sources = [Path(stage.name) / name for name in ("VisualMath.swift", "LessonForm.swift")]
+for source in sources:
+    shutil.copyfile(here / source.name, source)
 subprocess.run(["swiftc", "-parse-as-library", "-O", "-target", "arm64-apple-macos13.0",
                 "-module-cache-path", str(Path(stage.name) / "module-cache"),
-                str(here / "VisualMath.swift"), str(here / "LessonForm.swift"), "-o", str(executable)], check=True)
+                *map(str, sources), "-o", str(executable)], check=True)
 for path in [here / "run.sh", here / "Slope.visualmath", here / "render_document.py", here.parent / "lesson_tools.py"]:
     shutil.copyfile(path, resources / path.name)
 shutil.copyfile(archive, resources / "runtime.tar.gz")
