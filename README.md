@@ -62,7 +62,6 @@ MANIM_CODING_MODEL = "gemini-3.8-flash"
 MANIM_FALLBACK_MODEL = "gemini-3.5-flash"
 SUPABASE_URL = "https://zbitxwoucoqlswlradmt.supabase.co"
 SUPABASE_PUBLISHABLE_KEY = "..."
-BETA_EMAILS = "invited@example.com"
 GITHUB_REPOSITORY = "raosanjit-oss/learnAdvancedMath"
 GITHUB_ACTIONS_TOKEN = "..."
 ```
