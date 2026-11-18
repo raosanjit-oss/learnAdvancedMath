@@ -55,14 +55,6 @@ def require_login():
         try:
             user = db.auth.get_user().user
             if user:
-                allowed_emails = {email.strip().lower() for email in str(setting("BETA_EMAILS", "")).split(",") if email.strip()}
-                if (user.email or "").lower() not in allowed_emails:
-                    st.error("This account isn't on the beta invitation list yet.")
-                    if st.button("Use another account"):
-                        db.auth.sign_out()
-                        st.session_state.clear()
-                        st.rerun()
-                    st.stop()
                 st.session_state.cloud_user_id = user.id
                 with st.sidebar:
                     if st.button("Sign out"):
@@ -76,7 +68,7 @@ def require_login():
             st.error("Your session expired. Reload the page and sign in again.")
             st.stop()
     st.title("Sign in to Visual Math")
-    st.caption("If you received a beta invitation, you can create an account with your invited email address.")
+    st.caption("New to Visual Math? Create an account with your email address.")
     sign_in_tab, create_tab = st.tabs(["Sign in", "Create account"])
     with sign_in_tab, st.form("sign_in", clear_on_submit=True):
         email = st.text_input("Email")
@@ -89,13 +81,12 @@ def require_login():
         except Exception:
             st.error("Could not sign in. Check your email and password.")
     with create_tab, st.form("create_account", clear_on_submit=True):
-        new_email = st.text_input("Invited email", key="new_email")
+        new_email = st.text_input("Email", key="new_email")
         new_password = st.text_input("Create password", type="password", key="new_password")
         create = st.form_submit_button("Create account")
     if create:
-        allowed_emails = {email.strip().lower() for email in str(setting("BETA_EMAILS", "")).split(",") if email.strip()}
-        if new_email.strip().lower() not in allowed_emails:
-            st.error("That email isn't on the beta invitation list.")
+        if not new_email.strip():
+            st.error("Enter your email address.")
         elif len(new_password) < 8:
             st.error("Use a password with at least 8 characters.")
         else:
@@ -133,9 +124,8 @@ def require_login():
             resend_email = st.text_input("Account email", key="resend_email")
             resend = st.form_submit_button("Send a new confirmation email")
     if resend:
-        allowed_emails = {email.strip().lower() for email in str(setting("BETA_EMAILS", "")).split(",") if email.strip()}
-        if resend_email.strip().lower() not in allowed_emails:
-            st.error("That email isn't on the beta invitation list.")
+        if not resend_email.strip():
+            st.error("Enter your account email address.")
         else:
             try:
                 resend_details = {"type": "signup", "email": resend_email.strip()}
