@@ -20,7 +20,7 @@ button[kind="primary"], button[kind="primaryFormSubmit"] { background: #e6e6e6 !
 button[kind="secondary"], button[kind="secondaryFormSubmit"] { background: transparent; color: #ddd; border: 1px solid #434343; }
 button { border-radius: 8px !important; min-height: 2.6rem; }
 button:hover { border-color: #ddd !important; }
-button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #b7d8cc !important; outline-offset: 3px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #ae7aff !important; outline-offset: 3px; }
 [data-testid="stVerticalBlockBorderWrapper"] > div { border-color: #353535 !important; border-radius: 12px !important; }
 [data-testid="stCaptionContainer"] { color: #a6a6a6; }
 .section-label { margin: 2.5rem 0 1rem; }

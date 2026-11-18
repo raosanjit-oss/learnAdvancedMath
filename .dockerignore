@@ -9,6 +9,8 @@
 !public_limits.py
 !verify_host.py
 !styles.css
+!assets/
+!assets/visual-math-purple.jpg
 !system_prompt.txt
 !suggestions.txt
 !topic_viability.txt

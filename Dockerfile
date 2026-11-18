@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt -c cloud-sdk.lock
 RUN useradd --create-home --uid 1000 student && chown student:student /app
 COPY --chown=student:student app.py app_settings.py generate_lesson.py lesson_tools.py cloud_lessons.py public_limits.py verify_host.py ./
 COPY --chown=student:student styles.css system_prompt.txt suggestions.txt topic_viability.txt ./
+COPY --chown=student:student assets/visual-math-purple.jpg assets/
 COPY --chown=student:student .streamlit/config.toml .streamlit/config.toml
 USER student
 ENV PUBLIC_DEPLOYMENT=true

@@ -15,7 +15,9 @@ import cloud_lessons
 from public_limits import check_budget, generation_slot
 
 project_directory = Path(__file__).resolve().parent
-st.set_page_config(page_title="Visual Math", page_icon="∿", layout="wide")
+logo_path = str(project_directory / "assets" / "visual-math-purple.jpg")
+st.set_page_config(page_title="Visual Math", page_icon=logo_path, layout="wide")
+st.logo(logo_path, size="large", icon_image=logo_path)
 st.markdown(f"<style>{(project_directory / 'styles.css').read_text()}</style>", unsafe_allow_html=True)
 public_mode = cloud_lessons.enabled()
 if public_mode:
@@ -163,7 +165,7 @@ if public_mode and st.session_state.job_id:
     except Exception as error:
         show_error(error)
 with st.sidebar:
-    st.markdown('<div class="brand">∿ <span>Visual Math</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="brand"><span>Visual Math</span></div>', unsafe_allow_html=True)
     if st.button("＋  New lesson", use_container_width=True):
         st.session_state.update(defaults)
         for key in ("topic_input", "topic_choice", "custom_topic"):

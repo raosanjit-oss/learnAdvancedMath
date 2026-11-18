@@ -18,6 +18,18 @@ executable = app / "Contents/MacOS/VisualMath"
 resources.mkdir(parents=True, exist_ok=True)
 executable.parent.mkdir(exist_ok=True)
 
+logo = here.parent / "assets" / "visual-math-purple.jpg"
+iconset = Path(stage.name) / "VisualMath.iconset"
+iconset.mkdir()
+for points in (16, 32, 128, 256, 512):
+    for scale in (1, 2):
+        pixels = str(points * scale)
+        suffix = "@2x" if scale == 2 else ""
+        icon = iconset / f"icon_{points}x{points}{suffix}.png"
+        subprocess.run(["sips", "-s", "format", "png", "-z", pixels, pixels, logo,
+                        "--out", icon], check=True, stdout=subprocess.DEVNULL)
+subprocess.run(["iconutil", "-c", "icns", iconset, "-o", resources / "VisualMath.icns"], check=True)
+
 sources = [Path(stage.name) / name for name in ("VisualMath.swift", "LessonForm.swift")]
 for source in sources:
     shutil.copyfile(here / source.name, source)
@@ -33,7 +45,8 @@ with archive.open("rb") as file:
 info = {
     "CFBundleIdentifier": "org.visualmath.desktop", "CFBundleName": "Visual Math",
     "CFBundlePackageType": "APPL", "CFBundleExecutable": executable.name,
-    "CFBundleVersion": "1", "CFBundleShortVersionString": "0.1", "LSMinimumSystemVersion": "13.0",
+    "CFBundleIconFile": "VisualMath.icns",
+    "CFBundleVersion": "2", "CFBundleShortVersionString": "0.1", "LSMinimumSystemVersion": "13.0",
     "NSHighResolutionCapable": True, "CFBundleDocumentTypes": [{
         "CFBundleTypeName": "Visual Math Lesson", "CFBundleTypeRole": "Viewer",
         "LSItemContentTypes": ["org.visualmath.lesson"]}],
