@@ -2,6 +2,21 @@ import SwiftUI
 import AVKit
 import UniformTypeIdentifiers
 
+struct LessonPlayer: NSViewRepresentable {
+    let player: AVPlayer
+
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = AVPlayerView()
+        view.controlsStyle = .inline
+        view.player = player
+        return view
+    }
+
+    func updateNSView(_ view: AVPlayerView, context: Context) {
+        if view.player !== player { view.player = player }
+    }
+}
+
 @MainActor
 final class Library: ObservableObject {
     @Published var document: URL?
@@ -85,7 +100,12 @@ struct VisualMath: App {
                 }
                 Text(library.message).textSelection(.enabled)
                 if let player = library.player {
-                    VideoPlayer(player: player).frame(minHeight: 240)
+                    HStack {
+                        Button("Play") { player.play() }
+                        Button("Pause") { player.pause() }
+                        Button("Replay") { player.seek(to: .zero); player.play() }
+                    }
+                    LessonPlayer(player: player).frame(minHeight: 240)
                 }
                 if let url = library.video {
                     Button("Show video in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
@@ -93,7 +113,7 @@ struct VisualMath: App {
                     Button("Open saved videos") { NSWorkspace.shared.open(library.movies) }
                 }
                 Spacer(minLength: 0)
-            }.padding(28).frame(minWidth: 560, minHeight: 340)
+            }.padding(28).frame(minWidth: 560, minHeight: library.player == nil ? 340 : 630)
              .onOpenURL { url in if url.isFileURL { library.select(url) } }
              .sheet(isPresented: $creating) {
                 VStack {
